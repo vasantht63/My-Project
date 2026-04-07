@@ -157,7 +157,8 @@ app.get('/api/channel/download/:channelId/:msgId', async (req, res) => {
 
     const info = extractFileInfo(targetMsg);
     
-    res.setHeader('Content-Disposition', `attachment; filename="${info.name}"`);
+    let safeName = encodeURIComponent(info.name || 'file');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeName}`);
     res.setHeader('Content-Type', info.mime || 'application/octet-stream');
     if (info.size) {
       res.setHeader('Content-Length', info.size);
