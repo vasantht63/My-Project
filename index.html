@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Telegram Channel Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.09);
+    --accent: #2AABEE;
+    --accent-hover: #1a8fd1;
+    --success: #30d158;
+    --error: #ff453a;
+    --warn: #ffd60a;
+    --text: #f0f4ff;
+    --muted: rgba(240,244,255,0.45);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body::before, body::after { content: ''; position: fixed; border-radius: 50%; filter: blur(120px); z-index: 0; pointer-events: none; }
+  body::before { width: 500px; height: 500px; background: radial-gradient(circle, rgba(42,171,238,0.1) 0%, transparent 70%); top: -100px; left: -100px; }
+  
+  #app { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; }
+  
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; padding-top: 8px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo h1 { font-size: 1.2rem; font-weight: 700; color: var(--accent); }
+  .logo span { font-size: 0.75rem; color: var(--muted); }
+  
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; margin-bottom: 20px;
+    backdrop-filter: blur(20px);
+  }
+  .card-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
+
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
+  input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 13px 16px; font-family: 'Inter'; outline: none; margin-bottom: 14px; }
+  input:focus { border-color: var(--accent); }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Inter'; font-size: 0.92rem; font-weight: 600; padding: 13px 24px; border-radius: var(--radius-sm); border: none; cursor: pointer; color: white; transition: 0.2s; width: 100%; }
+  .btn:disabled { opacity: 0.5; pointer-events: none; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); }
+  .btn-success { background: linear-gradient(135deg, var(--success), #1fa143); }
+
+  .alert { display: none; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 14px; background: rgba(255,69,58,0.12); color: #ff6b60; border: 1px solid rgba(255,69,58,0.3); }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .file-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; }
+  .file-name { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 50px; background: rgba(240,244,255,0.1); color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo">
+      <div>
+        <h1>TG Downloader Backend</h1>
+        <span>Streams direct from Node.js Express to Browser</span>
+      </div>
+    </div>
+    <div id="user-info" style="display:none; font-size:0.8rem; color:var(--success);">✅ Authenticated</div>
+  </header>
+
+  <!-- Section 1: Phone -->
+  <div id="section-phone" class="section active">
+    <div class="card">
+      <div class="card-title">📱 Sign In to Telegram</div>
+      <div id="err-phone" class="alert"></div>
+      <label>Phone Number (with country code)</label>
+      <input type="text" id="phone" placeholder="+1 234 567 8900" />
+      <button class="btn btn-primary" id="btn-phone" onclick="sendCode()">Send Code</button>
+    </div>
+  </div>
+
+  <!-- Section 2: Verification Code -->
+  <div id="section-code" class="section">
+    <div class="card">
+      <div class="card-title">🔐 Verify Code</div>
+      <div id="err-code" class="alert"></div>
+      <label>Passcode</label>
+      <input type="text" id="code" placeholder="· · · · · ·" />
+      <div id="password-group" style="display:none">
+        <label>2FA Password</label>
+        <input type="password" id="password" placeholder="Cloud password" />
+      </div>
+      <button class="btn btn-primary" id="btn-code" onclick="verifyCode()">Verify Code</button>
+    </div>
+  </div>
+
+  <!-- Section 3: Downloads -->
+  <div id="section-dl" class="section">
+    <div class="card">
+      <div class="card-title">🔗 Enter Channel Link</div>
+      <div id="err-dl" class="alert"></div>
+      <input type="text" id="channel" placeholder="t.me/yourchannel or @username" />
+      <button class="btn btn-primary" id="btn-fetch" onclick="fetchFiles()">Fetch Files</button>
+      <button class="btn btn-success" id="btn-dl-all" onclick="downloadAll()" style="display:none; margin-top:10px;">⬇ Download All natively</button>
+    </div>
+
+    <div id="files-list" style="margin-top: 20px;"></div>
+  </div>
+</div>
+
+<script>
+  let filesData = [];
+  let currentChannel = '';
+
+  // Check login state on load
+  fetch('/api/me').then(r=>r.json()).then(data => {
+    if (data.authed) {
+      document.getElementById('user-info').style.display = 'block';
+      document.getElementById('user-info').innerText = '✅ ' + data.user;
+      showSection('section-dl');
+    }
+  });
+
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function err(id, msg) {
+    const el = document.getElementById(id);
+    if (!msg) { el.style.display = 'none'; return; }
+    el.style.display = 'block'; el.innerText = msg;
+  }
+
+  async function sendCode() {
+    err('err-phone', '');
+    document.getElementById('btn-phone').disabled = true;
+    const res = await fetch('/api/auth/sendCode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: document.getElementById('phone').value })
+    });
+    const j = await res.json();
+    document.getElementById('btn-phone').disabled = false;
+    
+    if (j.error) return err('err-phone', j.error);
+    if (j.alreadyLoggedIn) {
+      document.getElementById('user-info').style.display = 'block';
+      document.getElementById('user-info').innerText = '✅ ' + j.user;
+      return showSection('section-dl');
+    }
+    showSection('section-code');
+  }
+
+  async function verifyCode() {
+    err('err-code', '');
+    document.getElementById('btn-code').disabled = true;
+    const body = { code: document.getElementById('code').value, password: document.getElementById('password').value };
+    
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const j = await res.json();
+    document.getElementById('btn-code').disabled = false;
+    
+    if (j.error === 'SESSION_PASSWORD_NEEDED') {
+      document.getElementById('password-group').style.display = 'block';
+      return err('err-code', '2FA Password Required');
+    }
+    if (j.error) return err('err-code', j.error);
+    
+    document.getElementById('user-info').style.display = 'block';
+    document.getElementById('user-info').innerText = '✅ ' + j.user;
+    showSection('section-dl');
+  }
+
+  async function fetchFiles() {
+    currentChannel = document.getElementById('channel').value;
+    if (!currentChannel) return;
+    err('err-dl', '');
+    document.getElementById('btn-fetch').disabled = true;
+    document.getElementById('btn-fetch').innerText = 'Scanning...';
+    
+    const res = await fetch('/api/channel/files', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: currentChannel })
+    });
+    const j = await res.json();
+    document.getElementById('btn-fetch').disabled = false;
+    document.getElementById('btn-fetch').innerText = 'Fetch Files';
+
+    if (j.error) return err('err-dl', j.error);
+    
+    filesData = j.files;
+    render();
+    if (filesData.length > 0) document.getElementById('btn-dl-all').style.display = 'block';
+  }
+
+  function render() {
+    const d = document.getElementById('files-list');
+    d.innerHTML = '';
+    filesData.forEach(f => {
+      d.innerHTML += `
+        <div class="file-item">
+          <input type="checkbox" id="chk-${f.id}" checked />
+          <div class="badge">${f.type}</div>
+          <div class="file-name">${f.name}</div>
+        </div>
+      `;
+    });
+  }
+
+  async function downloadAll() {
+    if (!currentChannel) return;
+    const m = currentChannel.match(/(?:t\.me\/|@)([A-Za-z0-9_]+)/);
+    const channelId = m ? m[1] : currentChannel;
+
+    // We do sequential downloads by opening the browser URL securely
+    // Triggering a direct file stream to the browser via the Node.js API
+    for (const f of filesData) {
+      if (!document.getElementById(`chk-${f.id}`).checked) continue;
+      
+      const a = document.createElement('a');
+      a.href = \`/api/channel/download/\${channelId}/\${f.id}\`;
+      a.target = '_blank';
+      a.download = f.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // give browser time to start the native download worker
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+</script>
+</body>
+</html>
